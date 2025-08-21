@@ -1,15 +1,57 @@
 --การ Query ข้อมูลจากหลายตาราง (Join)
 -- 1.   จงแสดงข้อมูลรหัสใบสั่งซื้อ ชื่อบริษัทลูกค้า ชื่อและนามสกุลพนักงาน(ในคอลัมน์เดียวกัน) วันที่สั่งซื้อ ชื่อบริษัทขนส่งของ เมืองและประเทศที่ส่งของไป รวมถึงยอดเงินที่ต้องรับจากลูกค้าด้วย  
-select 
-from orders o 
+select o.OrderID ,c.CompanyName,(e.firstName+e.lastName), o.OrderDate,s.CompanyName,o.shipCity,o.ShipCountry,SUM(od.UnitPrice * od.Quantity * (1 - od.Discount))
+from Orders o join Customers c on c.CustomerID = c.CustomerID join Employees e on o.EmployeeID = e.EmployeeID join Shippers s on o.ShipVia = s.ShipperID join [Order Details] od on o.OrderID = od.OrderID
+GROUP BY o.OrderID, c.CompanyName, e.FirstName, e.LastName, o.OrderDate, s.CompanyName, o.ShipCity, o.ShipCountry
+ORDER BY o.OrderID;
 -- 2.   จงแสดง ข้อมูล ชื่อบริษัทลูกค้า ชื่อผู้ติดต่อ เมือง ประเทศ จำนวนใบสั่งซื้อที่เกี่ยวข้องและ ยอดการสั่งซื้อทั้งหมดเลือกมาเฉพาะเดือน มกราคมถึง มีนาคม  1997
+SELECT c.CompanyName ,c.ContactName, c.City ,c.Country ,COUNT(o.OrderID) ,SUM(od.UnitPrice * od.Quantity * (1 - od.Discount))
+FROM Orders o JOIN Customers c ON o.CustomerID = c.CustomerID JOIN [Order Details] od    ON o.OrderID = od.OrderID
+WHERE o.OrderDate BETWEEN '1997-01-01' AND '1997-03-31'
+GROUP BY  c.CompanyName, c.ContactName, c.City, c.Country
+ORDER BY  SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) DESC;
 -- 3.   จงแสดงชื่อเต็มของพนักงาน ตำแหน่ง เบอร์โทรศัพท์ จำนวนใบสั่งซื้อ รวมถึงยอดการสั่งซื้อทั้งหมดในเดือนพฤศจิกายน ธันวาคม 2539  โดยที่ใบสั่งซื้อนั้นถูกส่งไปประเทศ USA, Canada หรือ Mexico
+SELECT (e.FirstName + e.LastName), e.Title, e.HomePhone ,  COUNT(o.OrderID) , SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) 
+FROM Employees e JOIN Orders o  ON e.EmployeeID = o.EmployeeID JOIN [Order Details] od  ON o.OrderID = od.OrderID
+WHERE  (o.OrderDate BETWEEN '1996-11-01' AND '1996-12-31') AND o.ShipCountry IN ('USA', 'Canada', 'Mexico')
+GROUP BY  e.FirstName, e.LastName, e.Title, e.HomePhone
+ORDER BY  SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) DESC;
 -- 4.   จงแสดงรหัสสินค้า ชื่อสินค้า ราคาต่อหน่วย  และจำนวนทั้งหมดที่ขายได้ในเดือน มิถุนายน 2540
+SELECT p.ProductID ,  p.ProductName ,  p.UnitPrice ,  SUM(od.Quantity) 
+FROM Orders o JOIN [Order Details] od ON o.OrderID = od.OrderID JOIN Products p ON od.ProductID = p.ProductID
+WHERE  o.OrderDate BETWEEN '1997-06-01' AND '1997-06-30'
+GROUP BY p.ProductID, p.ProductName, p.UnitPrice
+ORDER BY SUM(od.Quantity) DESC;
 -- 5.   จงแสดงรหัสสินค้า ชื่อสินค้า ราคาต่อหน่วย และยอดเงินทั้งหมดที่ขายได้ ในเดือน มกราคม 2540 แสดงเป็นทศนิยม 2 ตำแหน่ง
+SELECT p.ProductID , p.ProductName , p.UnitPrice ,  ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2)
+FROM Orders o JOIN [Order Details] od ON o.OrderID = od.OrderID JOIN Products p ON od.ProductID = p.ProductID
+WHERE  o.OrderDate BETWEEN '1997-01-01' AND '1997-01-31'
+GROUP BY  p.ProductID, p.ProductName, p.UnitPrice
+ORDER BY ROUND(SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)), 2) DESC;
 -- 6.   จงแสดงชื่อบริษัทตัวแทนจำหน่าย ชื่อผู้ติดต่อ เบอร์โทร เบอร์ Fax รหัส ชื่อสินค้า ราคา จำนวนรวมที่จำหน่ายได้ในปี 1996
+SELECT s.CompanyName , s.ContactName , s.Phone , s.Fax , p.ProductID , p.ProductName , p.UnitPrice , SUM(od.Quantity) 
+FROM Suppliers s JOIN Products p ON s.SupplierID = p.SupplierID JOIN [Order Details] od ON p.ProductID = od.ProductID JOIN Orders o ON od.OrderID = o.OrderID
+WHERE  YEAR(o.OrderDate) = 1996
+GROUP BY s.CompanyName, s.ContactName, s.Phone, s.Fax, p.ProductID, p.ProductName, p.UnitPrice
+ORDER BY s.CompanyName, p.ProductID;
 -- 7.   จงแสดงรหัสสินค้า ชื่อสินค้า ราคาต่อหน่วย  และจำนวนทั้งหมดที่ขายได้เฉพาะของสินค้าที่เป็นประเภท Seafood และส่งไปประเทศ USA ในปี 1997
+SELECT p.ProductID , p.ProductName , p.UnitPrice , SUM(od.Quantity) 
+FROM Orders o JOIN [Order Details] od ON o.OrderID = od.OrderID JOIN Products p ON od.ProductID = p.ProductID JOIN Categories c ON p.CategoryID = c.CategoryID
+WHERE c.CategoryName = 'Seafood' AND o.ShipCountry = 'USA' AND YEAR(o.OrderDate) = 1997
+GROUP BY p.ProductID, p.ProductName, p.UnitPrice
+ORDER BY SUM(od.Quantity) DESC;
 -- 8.   จงแสดงชื่อเต็มของพนักงานที่มีตำแหน่ง Sale Representative อายุงานเป็นปี และจำนวนใบสั่งซื้อทั้งหมดที่รับผิดชอบในปี 1998
+SELECT (e.FirstName + e.LastName) , e.Title, DATEDIFF(YEAR, e.HireDate, '1998-12-31') , COUNT(o.OrderID) 
+FROM Employees e LEFT JOIN Orders o ON e.EmployeeID = o.EmployeeID AND YEAR(o.OrderDate) = 1998
+WHERE  e.Title = 'Sales Representative'
+GROUP BY e.FirstName, e.LastName, e.Title, e.HireDate
+ORDER BY COUNT(o.OrderID) DESC;
 -- 9.   แสดงชื่อเต็มพนักงาน ตำแหน่งงาน ของพนักงานที่ขายสินค้าให้บริษัท Frankenversand ในปี  1996
+SELECT (e.FirstName + e.LastName) , e.Title 
+FROM Employees e JOIN Orders o ON e.EmployeeID = o.EmployeeID JOIN Customers c ON o.CustomerID = c.CustomerID
+WHERE  c.CompanyName = 'Frankenversand' AND YEAR(o.OrderDate) = 1996
+GROUP BY e.FirstName, e.LastName, e.Title
+ORDER BY e.LastName, e.FirstName;
 -- 10.  จงแสดงชื่อสกุลพนักงานในคอลัมน์เดียวกัน ยอดขายสินค้าประเภท Beverage ที่แต่ละคนขายได้ ในปี 1996
 -- 11.  จงแสดงชื่อประเภทสินค้า รหัสสินค้า ชื่อสินค้า ยอดเงินที่ขายได้(หักส่วนลดด้วย) ในเดือนมกราคม - มีนาคม 2540 โดย มีพนักงานผู้ขายคือ Nancy
 -- 12.  จงแสดงชื่อบริษัทลูกค้าที่ซื้อสินค้าประเภท Seafood ในปี 1997
